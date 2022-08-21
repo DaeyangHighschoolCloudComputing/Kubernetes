@@ -22,7 +22,7 @@ read the CNCF [announcement].
 [CNCF]: https://www.cncf.io/about
 [containerized applications]: https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/
 
-<img src="https://user-images.githubusercontent.com/86287920/185788522-fd7bc637-f5ed-4dba-acc3-54da362fb5f6.PNG">
+<p align="center"><img src="https://user-images.githubusercontent.com/86287920/185788522-fd7bc637-f5ed-4dba-acc3-54da362fb5f6.PNG"></p>
 
 #### files that used in this project.
 - namespace.yaml
