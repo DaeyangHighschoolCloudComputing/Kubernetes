@@ -1,4 +1,4 @@
-<h1 align="center"># Kubernetes / k8s ☸</h1>
+<h1 align="center"> Kubernetes / k8s ☸</h1>
 <p align="center"><img src="https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png" width="100"></p>
 
 Kubernetes, also known as K8s, is an open source system for managing [containerized applications]
