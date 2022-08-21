@@ -1,6 +1,5 @@
 # Kubernetes / k8s ☸
 <img src="https://github.com/kubernetes/kubernetes/raw/master/logo/logo.png" width="100">
-
 ----
 
 Kubernetes, also known as K8s, is an open source system for managing [containerized applications]
@@ -23,6 +22,8 @@ read the CNCF [announcement].
 [Borg]: https://research.google.com/pubs/pub43438.html
 [CNCF]: https://www.cncf.io/about
 [containerized applications]: https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/
+
+<img src="https://user-images.githubusercontent.com/86287920/185788522-fd7bc637-f5ed-4dba-acc3-54da362fb5f6.PNG">
 
 #### files that used in this project.
 - namespace.yaml
