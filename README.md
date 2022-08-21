@@ -187,7 +187,7 @@ spec:
     spec:
       containers:
       - name: app-container
-        image: jeonilshin/task1:latest
+        image: grafana/grafana
         ports:
         - name: http
           containerPort: 3000
