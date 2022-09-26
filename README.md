@@ -233,6 +233,7 @@ metadata:
   annotations:
     alb.ingress.kubernetes.io/healthcheck-path: "/health"
 spec:
+  type: NodePort
   selector:
     app: worldskills
   ports:
