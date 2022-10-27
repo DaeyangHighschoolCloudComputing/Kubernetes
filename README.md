@@ -63,7 +63,7 @@ sudo mv /tmp/eksctl /usr/local/bin
 cat <<EOF >>/etc/ssh/sshd_config
 Port 2220
 EOF
-sed -i "/PasswordAuthentication/d" /etc/ssh/sshd_config
+sed -i "s/PasswordAuthentication no/PasswordAuthentication yes/g" /etc/ssh/sshd_config
 systemctl restart sshd
 sudo echo -e "Skills2024**\nSkills2024**" | sudo passwd ubuntu
 ```
