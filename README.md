@@ -230,8 +230,6 @@ kind: Service
 metadata:
   name: worldskills-cloud-service
   namespace: worldskills-ns
-  annotations:
-    alb.ingress.kubernetes.io/healthcheck-path: "/health"
 spec:
   type: NodePort
   selector:
@@ -302,13 +300,14 @@ metadata:
   name: worldskills-cloud-ingress
   namespace: worldskills-ns
   annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/load-balancer-name: worldskills-cloud-alb
+kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/subnets: worldskills-cloud-pub-sn-a, worldskills-cloud-pub-sn-c
-    alb.ingress.kubernetes.io/ip-address-type: dualstack
-    alb.ingress.kubernetes.io/target-group-attributes: load_balancing.algorithm.type=least_outstanding_requests
+    alb.ingress.kubernetes.io/group.name: worldskills-cloud-tg
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/load-balancer-name: worldskills-cloud-alb
+    alb.ingress.kubernetes.io/algorithm-type: least-connection
+    
 spec:
   rules:
   - http:
@@ -322,7 +321,7 @@ spec:
                   number: 3000
 ```
 
-```kubectl apply -f ingress.yaml```
+```kubectl apply -f ingress.yaml --validate=false```
 #### alb 잘 실행되는지 확인하기
 ``` kubectl get ingress -n worldskills-ns```
 
