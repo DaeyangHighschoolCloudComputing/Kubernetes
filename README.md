@@ -20,23 +20,7 @@ read the CNCF [announcement].
 [announcement]: https://cncf.io/news/announcement/2015/07/new-cloud-native-computing-foundation-drive-alignment-among-container
 [Borg]: https://research.google.com/pubs/pub43438.html
 [CNCF]: https://www.cncf.io/about
-[containerized applications]: https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/
-
-
-### Diagram
-<p align="center"><img src="https://user-images.githubusercontent.com/86287920/185788522-fd7bc637-f5ed-4dba-acc3-54da362fb5f6.PNG"></p>
-
-#### files that used in this project.
-- namespace.yaml
-- cluster.yaml
-- deployment.yaml
-- limit.yaml
-- service.yaml
-- ingress.yaml
-- controller.yaml
-- cwinsight.yaml
-- scaler.yaml
-- autoscaler.yaml
+[containerized applications]: https://kubernetes.io/docs/concepts/overview/what-is-kubernetes/ 
 
 ### Software and Framework to be install and download.
 - [eksctl](https://www.eksctl.io)
@@ -86,68 +70,13 @@ sudo echo -e "Daeyang1@#\nDaeyang1@#" | sudo passwd ec2-user
 ```
 
 ## Manifest Files: Kubernetes Objects
-#### - cluster.yaml
+#### - components.yaml
 ```
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-
-metadata:
-  name: worldskills-cloud-cluster
-  region: ap-northeast-2
-  version: "1.22"
-
-vpc:
-  id: vpc-0f8fd1f154d4c39c4
-  subnets:
-    private:
-      worldskills-cloud-priv-sn-a:
-        id: subnet-0c92699bef1d18422
-      worldskills-cloud-priv-sn-c:
-        id: subnet-091a1baf6da30ed33
-
-managedNodeGroups:
-  - name: worldskills-cloud-node
-    instanceName: worldskills-cloud-node
-    instanceType: t3.medium
-    desiredCapacity: 2
-    volumeSize: 80
-    privateNetworking: true
-    iam:
-      withAddonPolicies:
-        imageBuilder: true
-        autoScaler: true
-        awsLoadBalancerController: true
-        cloudWatch: true
-      attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-        - arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
-
-fargateProfiles:
-  - name: worldskills-cloud-ws-profile
-    selectors:
-      - namespace: worldskills-ns
-
-secretsEncryption:
-  keyARN: arn:aws:kms:ap-northeast-2:956193760179:key/d42fbb4c-6c77-4aab-af4f-478211c948f3
-
-cloudWatch:
-  clusterLogging:
-    enableTypes: ["*"]
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+kubectl edit deploy -n kube-system metrics-server
 ```
-use ```eksctl``` to launch eks cluster and nodegroup
-
-``` eksctl create cluster -f cluster.yaml ```
-
-creation of cluster can take up to **15-20 minutes** so be patient...
-
-After creating cluster try to check if our nodes are made by: ``` kubectl get nodes ```
-
-if it says ```The connection to the server localhost:8080 was refused - did you specify the right host or port?``` it means you need to connect to eks cluster
-
-```aws eks --region {region} update-kubeconfig --name {cluster name}```
+![image](https://user-images.githubusercontent.com/86287920/201477488-955c3f7c-b32d-442c-8fee-d8c21c2aedc4.png)
+![image](https://user-images.githubusercontent.com/86287920/201477492-36db425f-9639-44b1-942e-d178e98ab764.png)
 
 #### - namespace.yaml
 ```
@@ -164,6 +93,69 @@ metadata:
 ```kubectl create ns {네임스페이스 이름}``` or ```kubectl create namespace {네임스페이스 이름}```
 
 In Kubernetes, namespaces provides a mechanism for isolating groups of resources within a single cluster. Names of resources need to be unique within a namespace, but not across namespaces. Namespace-based scoping is applicable only for namespaced objects (e.g. Deployments, Services, etc) and not for cluster-wide objects (e.g. StorageClass, Nodes, PersistentVolumes, etc).
+
+## RBAC(Role-based access control)
+#### - role.yaml
+```
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: worldskills-cloud-control-role-user
+  namespace: worldskills-ns
+---
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: worldskills-cloud-control-role
+  namespace: worldskills-ns
+rules:
+  - apiGroups:
+      - ""
+      - "apps"
+      - "batch"
+      - "extensions"
+    resources:
+      - "configmaps"
+      - "cronjobs"
+      - "deployments"
+      - "events"
+      - "ingresses"
+      - "jobs"
+      - "pods"
+      - "pods/attach"
+      - "pods/exec"
+      - "pods/log"
+      - "pods/portforward"
+      - "secrets"
+      - "services"
+    verbs:
+      - "create"
+      - "delete"
+      - "describe"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: worldskills-cloud-control-rolebinding
+  namespace: worldskills-ns
+subjects:
+- kind: ServiceAccount
+  name: worldskills-cloud-control-role-user
+  namespace: worldskills-ns
+roleRef:
+  kind: Role
+  name: worldskills-cloud-control-role
+  apiGroup: rbac.authorization.k8s.io
+```
+aws-auth ConfigMap에 IAM역활을 RBAC 역할 및 그룹에 매핑해준다.
+
+```
+eksctl create iamidentitymapping --cluster worldskills-cloud-cluster --arn arn:aws:iam::계정ID:role/worldskills-cloud-control-role --username worldskills-cloud-control-role-user
+```
 
 #### - deployment.yaml
 ```
@@ -253,33 +245,44 @@ eksctl utils associate-iam-oidc-provider \
     --cluster worldskills-cloud-cluster \
     --approve
 ```
+```
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master
+kubectl apply -k github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master
+```
 2. Create an IAM Policy to grant to the AWS Load Balancer Controller
 ```
-wget https://jeonilshin.s3.ap-northeast-2.amazonaws.com/iam_policy.json && aws iam create-policy \
---policy-name AWSLoadBalancerControllerIAMPolicy \
---policy-document file://iam_policy.json
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.1/docs/install/iam_policy.json
+aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam_policy.json
 ```
 3. Create ServiceAccount for AWS Load Balancer Controller
 ```
 eksctl create iamserviceaccount \
-    --cluster worldskills-cloud-cluster \
-    --namespace kube-system \
-    --name aws-load-balancer-controller \
-    --attach-policy-arn arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy \
+    --cluster=worldskills-cloud-cluster \
+    --namespace=kube-system \
+    --name=aws-load-balancer-controller \
+    --attach-policy-arn=arn:aws:iam::$ACCOUNT_ID:policy/AWSLoadBalancerControllerIAMPolicy \
     --override-existing-serviceaccounts \
     --approve
 ```
-4. Add AWS Load Balancer controller to the cluster. First, install **cert-manager**  to insert the certificate configuration into the Webhook. **Cert-manager** is an open source that automatically provisions and manages TLS certificates within a Kubernetes cluster.
-```
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
-```
-#### - controller.yaml
-```
-wget https://jeonilshin.s3.ap-northeast-2.amazonaws.com/controller.yaml
-```
+4. Add AWS Load Balancer controller to the cluster.
+(install helm)
 
-```kubectl apply -f controller.yaml```
-#### ALB Controller 정상적으로 실해되는지 확인하기
+```
+curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
+chmod 700 get_helm.sh
+./get_helm.sh
+```
+```
+helm repo add eks https://aws.github.io/eks-charts
+helm repo update
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+    -n kube-system \
+    --set clusterName=worldskills-cloud-eks-cluster \
+    --set serviceAccount.create=false \
+    --set serviceAccount.name=aws-load-balancer-controller \
+    --set region=ap-northeast-2
 ```
 kubectl get deployment -n kube-system aws-load-balancer-controller
 ```
