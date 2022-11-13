@@ -95,47 +95,40 @@ metadata:
 In Kubernetes, namespaces provides a mechanism for isolating groups of resources within a single cluster. Names of resources need to be unique within a namespace, but not across namespaces. Namespace-based scoping is applicable only for namespaced objects (e.g. Deployments, Services, etc) and not for cluster-wide objects (e.g. StorageClass, Nodes, PersistentVolumes, etc).
 
 ## RBAC(Role-based access control)
-#### - role.yaml
+### Create IAM User
+```
+aws iam create-user --user-name worldskills-cloud-control-role-user
+aws iam create-access-key --user-name worldskills-cloud-control-role-user
+```
+![image](https://user-images.githubusercontent.com/86287920/201504511-3474cddb-ad0c-42aa-855a-07a4e957fe11.png)
+
+aws-auth ConfigMap에 IAM역활을 RBAC 역할 및 그룹에 매핑해준다.
+#### - aws-auth.yaml
 ```
 apiVersion: v1
-kind: ServiceAccount
+kind: ConfigMap
 metadata:
-  name: worldskills-cloud-control-role-user
-  namespace: worldskills-ns
----
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapUsers: |
+    - userarn: arn:aws:iam::$ACCOUNT_ID:user/worldskills-cloud-control-role-user
+      username: worldskills-cloud-control-role-user
+```
+#### - role.yaml
+```
 kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: worldskills-cloud-control-role
   namespace: worldskills-ns
 rules:
-  - apiGroups:
-      - ""
-      - "apps"
-      - "batch"
-      - "extensions"
-    resources:
-      - "configmaps"
-      - "cronjobs"
-      - "deployments"
-      - "events"
-      - "ingresses"
-      - "jobs"
-      - "pods"
-      - "pods/attach"
-      - "pods/exec"
-      - "pods/log"
-      - "pods/portforward"
-      - "secrets"
-      - "services"
-    verbs:
-      - "create"
-      - "delete"
-      - "describe"
-      - "get"
-      - "list"
-      - "patch"
-      - "update"
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get", "apps"]
+  - apiGroups: ["extensions", "apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -143,20 +136,37 @@ metadata:
   name: worldskills-cloud-control-rolebinding
   namespace: worldskills-ns
 subjects:
-- kind: ServiceAccount
+- kind: User
   name: worldskills-cloud-control-role-user
-  namespace: worldskills-ns
+  apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
   name: worldskills-cloud-control-role
   apiGroup: rbac.authorization.k8s.io
 ```
-aws-auth ConfigMap에 IAM역활을 RBAC 역할 및 그룹에 매핑해준다.
+## worldskills-cloud-cluster-role-user로 로그인 후
+``` kubectl get pods -n default ```
+
+![image](https://user-images.githubusercontent.com/86287920/201504554-c5ccf95d-cc3b-4897-899d-25ef5314cb2f.png)
+
+! 오류가 떠야 정상입니다
+
+## Deploy, Service & Ingress
+
+### - Creating ServiceAccount
+#### Create a S3 Policy
+
+![image](https://user-images.githubusercontent.com/86287920/201504692-6520d889-b20b-4f04-8e5b-8467774c7e48.png)
+
 
 ```
-eksctl create iamidentitymapping --cluster worldskills-cloud-cluster --arn arn:aws:iam::계정ID:role/worldskills-cloud-control-role --username worldskills-cloud-control-role-user
+eksctl create iamserviceaccount \
+  --name worldskills-cloud-eks-sa \
+  --namespace worldskills-ns \
+  --cluster worldskills-cloud-eks-cluster \
+  --attach-policy-arn arn:aws:iam::$ACCOUNT_ID:policy/worldskills-cloud-s3-policy \
+  --approve
 ```
-
 #### - deployment.yaml
 ```
 apiVersion: apps/v1
@@ -176,7 +186,7 @@ spec:
       labels:
         app: worldskills
     spec:
-      serviceAccountName: worldskills-cloud-eks-sa  #Create a sa with s3 access
+      serviceAccountName: worldskills-cloud-eks-sa
       containers:
       - name: app-container
         image: jeonilshin/task1:latest
