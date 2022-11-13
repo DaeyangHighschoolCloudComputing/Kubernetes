@@ -161,7 +161,6 @@ eksctl create iamidentitymapping --cluster worldskills-cloud-cluster --arn arn:a
 ```
 apiVersion: apps/v1
 kind: Deployment
-
 metadata:
   name: worldskills-cloud-deployment
   namespace: worldskills-ns
@@ -177,13 +176,14 @@ spec:
       labels:
         app: worldskills
     spec:
+      serviceAccountName: worldskills-cloud-eks-sa  #Create a sa with s3 access
       containers:
       - name: app-container
-        image: grafana/grafana
-        ports:
-        - name: http
-          containerPort: 3000
-          protocol: TCP
+        image: jeonilshin/task1:latest
+        env:
+          - name: s3_bucket
+            value: "버킷이름" 
+
 ```
 
 ```kubectl apply -f deployment.yaml```
@@ -223,13 +223,13 @@ metadata:
   name: worldskills-cloud-service
   namespace: worldskills-ns
 spec:
-  type: NodePort
   selector:
     app: worldskills
   ports:
-    - protocol: TCP
-      port: 3000
-      name: http
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+  type: NodePort
 ```
 
 ```kubectl apply -f service.yaml```
@@ -284,12 +284,13 @@ helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
     --set serviceAccount.name=aws-load-balancer-controller \
     --set region=ap-northeast-2
 ```
+```
 kubectl get deployment -n kube-system aws-load-balancer-controller
 ```
 ```
 kubectl get sa aws-load-balancer-controller -n kube-system -o yaml
 ```
-##### logs
+##### aws controller logs
 ```
 kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o "aws-load-balancer[a-zA-Z0-9-]+")
 ```
@@ -298,22 +299,21 @@ kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o "aws-load
 ```
 apiVersion: networking.k8s.io/v1
 kind: Ingress
-
 metadata:
-  name: worldskills-cloud-ingress
-  namespace: worldskills-ns
+  name: "worldskills-cloud-ingress"
   annotations:
-kubernetes.io/ingress.class: alb
+    kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/group.name: worldskills-cloud-tg
     alb.ingress.kubernetes.io/healthcheck-path: /health
     alb.ingress.kubernetes.io/load-balancer-name: worldskills-cloud-alb
+    alb.ingress.kubernetes.io/subnets: worldskills-cloud-pub-sn-a, worldskills-cloud-pub-sn-c
     alb.ingress.kubernetes.io/algorithm-type: least-connection
-    
+
 spec:
   rules:
-  - http:
+    - http:
         paths:
           - path: /
             pathType: Prefix
@@ -321,7 +321,7 @@ spec:
               service:
                 name: worldskills-cloud-service
                 port:
-                  number: 3000
+                  number: 80
 ```
 
 ```kubectl apply -f ingress.yaml --validate=false```
@@ -330,53 +330,57 @@ spec:
 
 ![1](https://user-images.githubusercontent.com/86287920/185655862-e4fe2c3d-20d7-43a6-91ba-8cf123bae4f0.PNG)
 
-#### - cwinsight.yaml
+## AutoScaling
 ```
-curl https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/latest/k8s-deployment-manifest-templates/deployment-mode/daemonset/container-insights-monitoring/quickstart/cwagent-fluentd-quickstart.yaml -o cwinsight.yaml
-```
-```
-sed -i "s/{{cluster_name}}/worldskills-cloud-cluster/;s/{{region_name}}/ap-northeast-2/" ./cwinsight.yaml
+curl -O https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
 ```
 
+```vim cluster-autoscaler-autodiscover.yaml```
 
-```kubectl apply -f cwinsight.yaml```
+![image](https://user-images.githubusercontent.com/86287920/201500846-5c8d41e8-d192-4c9c-9c2e-5b6874fa8b73.png)
 
-## Autoscaling
-#### Apply HPA
-1. Create **metrics server**. **Metrics Server** aggregates resource usage data across the Kubernetes cluster. Collect metrics such as the CPU and memory usage of the worker node or container through kubelet installed on each worker node.
+![image](https://user-images.githubusercontent.com/86287920/201500849-b5e574de-de9e-4b4b-8389-8a401c3ceba6.png)
+
+![image](https://user-images.githubusercontent.com/86287920/201500850-b98e1d01-8021-4701-80e2-f9604ca1061c.png)
+
+``` kubectl apply -f cluster-autoscaler-autodiscover.yaml ```
+#### - hpa.yaml
 ```
-kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
-```
-### - scaler.yaml
-```
-apiVersion: autoscaling/v1
+apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: worldskills-cloud-cluster
-  namespace: default
+  name: worldskills-scaler
+  namespace: worldskills-ns
+  labels:
+    app: worldskills
 spec:
+  minReplicas: 2
+  maxReplicas: 20
+
+  metrics:
+  - resource:
+      name: cpu
+      targetAverageUtilization: 20
+    type: Resource
+
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: worldskills-cloud-deployment
-  minReplicas: 2
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 20
+```
+``` kubectl apply -f hpa.yaml ``` 
+
+#### - cwinsight.yaml
+```
+kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/master/k8s-yaml-templates/cloudwatch-namespace.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/master/k8s-yaml-templates/cwagent-kubernetes-monitoring/cwagent-serviceaccount.yaml
+curl -O https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/master/k8s-yaml-templates/cwagent-kubernetes-monitoring/cwagent-configmap.yaml
 ```
 
-```kubectl apply -f scaler.yaml```
+```vim cwagent-configmap.yaml```
+![image](https://user-images.githubusercontent.com/86287920/201500941-7de31fce-1b8b-4624-84b2-0ee194562b89.png)
 
-2. In **Auto Scaling Groups** page, click ASG applied in worker node, and update **Group details** value same as below.
-
-![2](https://user-images.githubusercontent.com/86287920/185660226-d42b6746-3dcf-4fc1-a8fc-c9443a2eeb97.png)
-
-![3](https://user-images.githubusercontent.com/86287920/185660246-69b4e84c-da62-45cc-ab6e-88928c5ec82e.png)
-
-![4](https://user-images.githubusercontent.com/86287920/185660249-76245a7b-801a-406d-a930-ff1e8d234361.png)
-
-### - autoscaler.yaml
 ```
-wget https://jeonilshin.s3.ap-northeast-2.amazonaws.com/autoscaler.yaml
+kubectl apply -f cwagent-configmap.yaml
+kubectl apply -f https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-container-insights/master/k8s-yaml-templates/cwagent-kubernetes-monitoring/cwagent-daemonset.yaml
 ```
-
-```kubectl apply -f autoscaler.yaml```
