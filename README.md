@@ -180,7 +180,7 @@ eksctl utils associate-iam-oidc-provider \
     --approve
 ```
 ```
-kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master
+kubectl apply -k "github.com/aws/eks-charts/stable/aws-load-balancer-controller//crds?ref=master"
 kubectl apply -k github.com/aws/eks-charts/stable/aws-load-balancer-controller/crds?ref=master
 ```
 2. Create an IAM Policy to grant to the AWS Load Balancer Controller
