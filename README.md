@@ -123,12 +123,33 @@ metadata:
   name: worldskills-cloud-control-role
   namespace: worldskills-ns
 rules:
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["list", "get", "apps"]
-  - apiGroups: ["extensions", "apps"]
-    resources: ["deployments"]
-    verbs: ["get", "list", "watch"]
+  - apiGroups:
+      - ""
+      - "apps"
+      - "batch"
+      - "extensions"
+    resources:
+      - "configmaps"
+      - "cronjobs"
+      - "deployments"
+      - "events"
+      - "ingresses"
+      - "jobs"
+      - "pods"
+      - "pods/attach"
+      - "pods/exec"
+      - "pods/log"
+      - "pods/portforward"
+      - "secrets"
+      - "services"
+    verbs:
+      - "create"
+      - "delete"
+      - "describe"
+      - "get"
+      - "list"
+      - "patch"
+      - "update"
 ---
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
@@ -138,7 +159,6 @@ metadata:
 subjects:
 - kind: User
   name: worldskills-cloud-control-role-user
-  apiGroup: rbac.authorization.k8s.io
 roleRef:
   kind: Role
   name: worldskills-cloud-control-role
