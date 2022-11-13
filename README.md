@@ -241,7 +241,7 @@ kubectl logs -n kube-system $(kubectl get po -n kube-system | egrep -o "aws-load
 eksctl create iamserviceaccount \
   --name worldskills-cloud-eks-sa \
   --namespace worldskills-ns \
-  --cluster worldskills-cloud-eks-cluster \
+  --cluster worldskills-cloud-cluster \
   --attach-policy-arn arn:aws:iam::$ACCOUNT_ID:policy/worldskills-cloud-s3-policy \
   --approve
 ```
