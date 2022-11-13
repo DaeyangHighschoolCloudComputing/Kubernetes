@@ -378,6 +378,7 @@ curl -O https://raw.githubusercontent.com/aws-samples/amazon-cloudwatch-containe
 ```
 
 ```vim cwagent-configmap.yaml```
+
 ![image](https://user-images.githubusercontent.com/86287920/201500941-7de31fce-1b8b-4624-84b2-0ee194562b89.png)
 
 ```
