@@ -242,7 +242,7 @@ eksctl create iamserviceaccount \
   --name worldskills-cloud-eks-sa \
   --namespace worldskills-ns \
   --cluster worldskills-cloud-cluster \
-  --attach-policy-arn arn:aws:iam::$ACCOUNT_ID:policy/worldskills-cloud-s3-policy \
+  --attach-policy-arn arn:aws:iam::$ACCOUNT_ID:policy/s3-policy \
   --approve
 ```
 #### - deployment.yaml
